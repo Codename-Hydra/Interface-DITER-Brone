@@ -442,339 +442,203 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function updateTime() {
-        const now = new Date();
-        // Use the outer variable properly (remove shadowing if any, but let's just use the outer const)
-        // Accessing outer scope 'startTimeComponent' directly
+        try {
+            const now = new Date();
 
-        // Electrical Data Elements (Declared top-level to avoid ReferenceError/TDZ)
-        const valVoltage = document.getElementById('valVoltage');
-        const valCurrent = document.getElementById('valCurrent');
-        const valPower = document.getElementById('valPower');
-        const valRPM = document.getElementById('valRPM');
-
-        // Update Clock and Date
-        if (currentTimeEl) {
-            currentTimeEl.textContent = now.toLocaleTimeString('en-GB', { hour12: false });
-        }
-
-        if (runningTimeEl) {
-            const diff = now - startTimeComponent;
-            const hours = Math.floor(diff / 3600000);
-            const minutes = Math.floor((diff % 3600000) / 60000);
-            const seconds = Math.floor((diff % 60000) / 1000);
-
-            runningTimeEl.textContent =
-                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        }
-
-        // Simulate Latency Color Coding
-        const pingEl = document.querySelector('.status-ping');
-        if (pingEl) {
-            // Randomize ping slightly for realism
-            const ping = Math.floor(Math.random() * (40 - 15 + 1) + 15);
-            pingEl.textContent = ping + ' ms';
-
-            if (ping < 50) {
-                pingEl.style.color = '#4ADE80'; // Green
-            } else if (ping < 100) {
-                pingEl.style.color = '#FACC15'; // Yellow
-            } else {
-                pingEl.style.color = '#EF4444'; // Red
+            // 1. Update Clock
+            // ----------------------------------------------------------------
+            if (currentTimeEl) {
+                currentTimeEl.textContent = now.toLocaleTimeString('en-GB', { hour12: false });
             }
-        }
 
-        // Update System Uptime in Terminal
-        const sysUptimeEl = document.getElementById('sysUptime');
-        if (sysUptimeEl) {
-            // Using same logic as running time
-            const diff = now - startTimeComponent;
-            const hours = Math.floor(diff / 3600000); // Total hours
-            const minutes = Math.floor((diff % 3600000) / 60000);
-            const seconds = Math.floor((diff % 60000) / 1000);
+            if (runningTimeEl) {
+                const diff = now - startTimeComponent;
+                const hours = Math.floor(diff / 3600000); // Total hours
+                const minutes = Math.floor((diff % 3600000) / 60000);
+                const seconds = Math.floor((diff % 60000) / 1000);
+                runningTimeEl.textContent =
+                    `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            }
 
-            sysUptimeEl.textContent =
-                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        }
+            // 2. Update System Status (Terminal & Ping)
+            // ----------------------------------------------------------------
+            const sysUptimeEl = document.getElementById('sysUptime');
+            if (sysUptimeEl && runningTimeEl) sysUptimeEl.textContent = runningTimeEl.textContent;
 
-        // Simulate CPU, MEM, TEMP
-        if (Math.random() > 0.5) { // Update less frequently perhaps? or every second is fine for "live" feel
-            const cpuEl = document.getElementById('sysCpu');
-            const memEl = document.getElementById('sysMem');
-            const tempEl = document.getElementById('sysTemp');
+            const pingEl = document.querySelector('.status-ping');
+            if (pingEl && Math.random() > 0.8) { // Update occasionally
+                const ping = Math.floor(Math.random() * (40 - 15 + 1) + 15);
+                pingEl.textContent = ping + ' ms';
+                pingEl.style.color = ping < 50 ? '#4ADE80' : (ping < 100 ? '#FACC15' : '#EF4444');
+            }
 
-            if (cpuEl) cpuEl.textContent = Math.floor(Math.random() * (30 - 5) + 5) + '%';
-            if (memEl) memEl.textContent = Math.floor(Math.random() * (40 - 20) + 20) + '%';
-            if (tempEl) tempEl.textContent = Math.floor(Math.random() * (55 - 35) + 35) + '°C';
-        }
+            // 3. Robot Simulation (State Machine)
+            // ----------------------------------------------------------------
+            const nowMs = Date.now();
+            const cycleDuration = 4000;
+            const cycleIndex = Math.floor(nowMs / cycleDuration) % 5;
 
-        // Omniwheel Simulation & Visualization
-        const flArrow = document.getElementById('arrowFL');
-        const frArrow = document.getElementById('arrowFR');
-        const rlArrow = document.getElementById('arrowRL');
-        const rrArrow = document.getElementById('arrowRR');
-        const resArrow = document.getElementById('resArrow');
+            let drive = 0, strafe = 0, turn = 0;
 
-        // SIMULATION STATE MACHINE
-        // To show variety, we cycle through different movement patterns.
-        const nowMs = Date.now();
-        const cycleDuration = 3000; // 3 seconds per state
-        const cycleIndex = Math.floor(nowMs / cycleDuration) % 6; // 6 States
+            // Auto-Mode if not manually "Started" (or just always for demo)
+            // Let's make it always run for the demo unless hidden
+            switch (cycleIndex) {
+                case 0: /* IDLE */ drive = 0; strafe = 0; turn = 0; break;
+                case 1: /* FWD */  drive = 0.8; strafe = 0; turn = 0; break;
+                case 2: /* BWD */  drive = -0.5; strafe = 0; turn = 0; break;
+                case 3: /* LEFT */ drive = 0; strafe = -0.7; turn = 0; break;
+                case 4: /* ROT */  turn = (Math.sin(nowMs / 500) * 0.8); break; // Sine wave rotation
+            }
 
-        let drive = 0, strafe = 0, turn = 0;
+            // Add organic noise
+            /* eslint-disable no-unused-vars */
+            drive += (Math.random() - 0.5) * 0.05;
+            strafe += (Math.random() - 0.5) * 0.05;
+            turn += (Math.random() - 0.5) * 0.05;
 
-        switch (cycleIndex) {
-            case 0: // IDLE
-                drive = 0; strafe = 0; turn = 0;
-                break;
-            case 1: // FORWARD
-                drive = 0.8; strafe = 0; turn = 0;
-                break;
-            case 2: // BACKWARD
-                drive = -0.6; strafe = 0; turn = 0;
-                break;
-            case 3: // STRAFE LEFT
-                drive = 0; strafe = -0.8; turn = 0;
-                break;
-            case 4: // STRAFE RIGHT
-                drive = 0; strafe = 0.8; turn = 0;
-                break;
-            case 5: // ROTATE CW & CCW (Split time)
-                if ((nowMs % 3000) < 1500) {
-                    turn = 0.9; // CCW (Left)
-                } else {
-                    turn = -0.9; // CW (Right)
-                }
-                break;
-        }
+            // 4. Electrical Simulation
+            // ----------------------------------------------------------------
+            // Voltage (LiPo Sag)
+            const baseVoltage = 24.8;
+            const voltageLoad = (Math.abs(drive) + Math.abs(strafe)) * 1.5; // Voltage drops when moving
+            const simVoltage = baseVoltage - voltageLoad + ((Math.random() - 0.5) * 0.1);
 
-        // Add some noise
-        drive += (Math.random() - 0.5) * 0.1;
-        strafe += (Math.random() - 0.5) * 0.1;
-        turn += (Math.random() - 0.5) * 0.1;
+            // Current (Load)
+            const baseCurrent = 1.2; // Idle
+            const currentLoad = (Math.abs(drive) + Math.abs(strafe) + Math.abs(turn)) * 20;
+            const simCurrent = baseCurrent + currentLoad + ((Math.random() - 0.5) * 0.5);
 
-        if (flArrow && frArrow && rlArrow && rrArrow && resArrow) {
-            // Mecanum Kinematics (Simplified)
-            // FL = D + S + T
-            // FR = D - S - T
-            // RL = D - S + T
-            // RR = D + S - T
+            // Power
+            const simPower = simVoltage * simCurrent;
 
+            // 5. Update DOM Elements
+            // ----------------------------------------------------------------
+            const valVoltage = document.getElementById('valVoltage');
+            const valCurrent = document.getElementById('valCurrent');
+            const valPower = document.getElementById('valPower');
+            const valCell = document.getElementById('valCell');
+
+            if (valVoltage) valVoltage.textContent = simVoltage.toFixed(1) + ' V';
+            if (valCell) valCell.textContent = (simVoltage / 6).toFixed(2) + ' V';
+            if (valPower) valPower.textContent = Math.floor(simPower) + ' W';
+            if (valCurrent) {
+                valCurrent.textContent = simCurrent.toFixed(1) + ' A';
+                valCurrent.style.color = simCurrent < 10 ? '#4ADE80' : (simCurrent < 20 ? '#FACC15' : '#EF4444');
+            }
+
+            // 6. Visualizer Updates (Wheels & Arrows)
+            // ----------------------------------------------------------------
+            // Kinematics
             let fl = drive + strafe + turn;
             let fr = drive - strafe - turn;
             let rl = drive - strafe + turn;
             let rr = drive + strafe - turn;
 
-            // Normalize to max 1.0 roughly for display
-            const maxVal = Math.max(Math.abs(fl), Math.abs(fr), Math.abs(rl), Math.abs(rr), 1.0);
-            fl /= maxVal; fr /= maxVal; rl /= maxVal; rr /= maxVal;
+            // Normalize
+            const maxM = Math.max(Math.abs(fl), Math.abs(fr), Math.abs(rl), Math.abs(rr), 1.0);
+            fl /= maxM; fr /= maxM; rl /= maxM; rr /= maxM;
 
-            // Helper to update specific wheel
-            function updateWheel(arrowEl, valElId, rpmElId, val) {
-                const valEl = document.getElementById(valElId);
-                const rpmEl = document.getElementById(rpmElId);
-                const absVal = Math.abs(val);
+            // Update Wheels
+            function setWheel(id, val) {
+                const arr = document.getElementById('arrow' + id);
+                const txt = document.getElementById('val' + id);
+                const rpmTxt = document.getElementById('rpm' + id);
 
-                // Calculate RPM (Simulated: Max 5000 RPM proportional to normalized value)
-                // Add minor random noise for realism
-                const wheelRpm = Math.floor(absVal * 5000) + (absVal > 0.1 ? Math.floor(Math.random() * 20) : 0);
+                if (arr && txt && rpmTxt) {
+                    const abs = Math.abs(val);
+                    const rpm = Math.floor(abs * 4000) + (abs > 0 ? Math.floor(Math.random() * 50) : 0);
 
-                // Update Text
-                if (valEl) valEl.textContent = (val >= 0 ? '+' : '') + val.toFixed(2) + ' Nm';
-                if (rpmEl) rpmEl.textContent = wheelRpm + ' RPM';
+                    // Arrow
+                    const rot = val >= 0 ? 0 : 180;
+                    const scale = abs < 0.05 ? 0.3 : (0.5 + abs * 0.5);
+                    const color = val >= 0 ? '#4ADE80' : '#EF4444';
 
-                // Update Arrow
-                const isZero = absVal < 0.05;
-                // Rotation: 0 (Up) if positive, 180 (Down) if negative
-                const rotation = val >= 0 ? 0 : 180;
-                const color = val >= 0 ? '#4ADE80' : '#EF4444'; // Green / Red
+                    arr.style.transform = `rotate(${rot}deg) scale(${scale})`;
+                    arr.style.color = color;
 
-                // Scale logic: 
-                // If practically zero, scale down to minimum visible size
-                const displayScale = isZero ? 0.3 : (0.5 + (absVal * 0.5));
-                // const displayOpacity = isZero ? 0.2 : 1.0; // User requested not to dim wheels
+                    // Text
+                    txt.textContent = (val >= 0 ? '+' : '') + val.toFixed(2) + ' Nm';
+                    rpmTxt.textContent = rpm + ' RPM';
 
-                arrowEl.style.transform = `rotate(${rotation}deg) scale(${displayScale})`;
-                arrowEl.style.color = color;
-                arrowEl.style.opacity = '1.0'; // Always visible
-                arrowEl.style.textShadow = isZero ? 'none' : `0 0 10px ${color}`;
-
-                return wheelRpm; // Return for average calc
-            }
-
-            const rpmFLVal = updateWheel(flArrow, 'valFL', 'rpmFL', fl);
-            const rpmFRVal = updateWheel(frArrow, 'valFR', 'rpmFR', fr);
-            const rpmRLVal = updateWheel(rlArrow, 'valRL', 'rpmRL', rl);
-            const rpmRRVal = updateWheel(rrArrow, 'valRR', 'rpmRR', rr);
-
-            // Note: Global RPM is updated below in Electrical section, we might want to sync them.
-            // Let's store avg rpm here to use it later or just trust the separate calculation?
-            // User requested "Avg RPM" -> just number.
-            const avgRpmCalc = Math.floor((rpmFLVal + rpmFRVal + rpmRLVal + rpmRRVal) / 4);
-            if (valRPM) valRPM.textContent = avgRpmCalc; // Removed ' rpm' suffix
-
-            // Update Resultant Arrow
-            // Vector Sum of Drive and Strafe (ignoring turn for movement direction)
-            // Atan2(y, x) -> y is forward (drive), x is strafe.
-            // Screen coordinates: Up is 0 deg.
-            // Angle in degrees
-            let angle = 0;
-            // Fix atan2(0,0) resulting in 0 -> 90deg (Right)
-            if (Math.abs(drive) < 0.05 && Math.abs(strafe) < 0.05) {
-                angle = 90; // So 90 - 90 = 0 (Up)
-            } else {
-                angle = Math.atan2(drive, strafe) * (180 / Math.PI);
-            }
-
-            // Atan2(y, x):
-            // (1, 0) -> 90 deg (Up)
-            // (0, 1) -> 0 deg (Right)
-            // We want Up to be 0 deg CSS transform.
-            // CSS 0 deg is North? Yes.
-            // Math 90 deg is North.
-            // So CSS = 90 - Math.
-            const resRotation = 90 - angle;
-
-            // Magnitude for scale (Linear movement only)
-            const magnitude = Math.sqrt(drive * drive + strafe * strafe);
-            const resScale = magnitude < 0.1 ? 0.5 : (0.5 + (Math.min(magnitude, 1.0) * 0.5));
-
-            // HIDE when idle to prevent "Stuck" look
-            // ISSUE FIX: Pure rotation has 0 magnitude, so it was hiding the arrow.
-            // We must check if there is ANY movement (Linear OR Angular).
-            const isMoving = magnitude > 0.1 || Math.abs(turn) > 0.1;
-            const resOpacity = isMoving ? 1.0 : 0.0;
-
-            // Rotation Indicator Logic
-            // User Request: Replace central arrow with rotation icon if rotating
-
-            const leftSide = (fl + rl);
-            const rightSide = (fr + rr);
-            const yawMoment = leftSide - rightSide;
-            const turnThreshold = 0.5; // Tuning
-
-            const resIcon = resArrow.querySelector('i');
-
-            // Check if rotating Dominantly
-            if (Math.abs(yawMoment) > turnThreshold && magnitude < 0.3) {
-                // Rotating AND Linear movement is low (Dominant Turn)
-                // Reset transform for rotation icon because we don't want to rotate the icon element itself based on angle
-                resArrow.style.transform = `scale(1.2)`; // Just scale up slightly
-                resArrow.style.color = '#D56BFF'; // Purple
-                resArrow.style.opacity = '1.0'; // Always show if rotating
-
-                if (yawMoment > 0) {
-                    // CCW (Left) - Based on positive moment
-                    if (resIcon) resIcon.className = 'bx bx-rotate-left';
-                } else {
-                    // CW (Right)
-                    if (resIcon) resIcon.className = 'bx bx-rotate-right';
+                    return rpm;
                 }
-            } else {
-                // Translating (Moving Linear) or Idle
-                if (resIcon) resIcon.className = 'bx bx-up-arrow-alt';
-
-                // Restore Vector Logic
-                resArrow.style.transform = `rotate(${resRotation}deg) scale(${resScale})`;
-                resArrow.style.color = '#1E293B'; // Dark Slate for visibility
-                resArrow.style.opacity = resOpacity.toString();
+                return 0;
             }
-            // Rotation Indicator Logic (for rotCCW/rotCW elements)
-            const rotCCW = document.getElementById('rotCCW');
-            const rotCW = document.getElementById('rotCW');
 
-            if (rotCCW && rotCW) {
-                // Determine turn direction from 'turn' input used in simulation
-                // turn > 0 is one way, turn < 0 is other.
-                // Assuming standard: positive is CCW (Left), negative is CW (Right) in standardized robotics coordinate?
-                // Or user said:
-                // Muter Kanan (CW): Roda Kiri Maju (+), Roda Kanan Mundur (-) -> Positive Turn?
-                // Let's stick to the 'turn' variable we generated.
-                // turn = (Math.random() - 0.5) * 1;
+            const rpm1 = setWheel('FL', fl);
+            const rpm2 = setWheel('FR', fr);
+            const rpm3 = setWheel('RL', rl);
+            const rpm4 = setWheel('RR', rr);
 
-                // Let's deduce from 'fl' and 'fr' like requested "Differential Drive" logic
-                // Left Side Avg = (fl + rl) / 2
-                // Right Side Avg = (fr + rr) / 2
-                // Yaw = Left - Right
-                // If Yaw > threshold -> CW (Left side pushing more forward than right)
-                // If Yaw < -threshold -> CCW (Right side pushing more forward than left)
-                // Wait, if FL/RL positive (forward), FR/RR negative (backward), robot turns RIGHT (CW).
-                // So (Left - Right) > 0 => CW.
+            const avgRPM = Math.floor((rpm1 + rpm2 + rpm3 + rpm4) / 4);
+            const valRPM = document.getElementById('valRPM');
+            if (valRPM) valRPM.textContent = avgRPM;
 
-                // yawMoment and turnThreshold are already calculated above.
-
-                if (yawMoment > turnThreshold) {
-                    // Turn Right (CW)
-                    rotCW.classList.add('active-cw');
-                    rotCCW.classList.remove('active-ccw');
-                } else if (yawMoment < -turnThreshold) {
-                    // Turn Left (CCW)
-                    rotCCW.classList.add('active-ccw');
-                    rotCW.classList.remove('active-cw');
+            // Resultant Arrow
+            const resArrow = document.getElementById('resArrow');
+            if (resArrow) {
+                const mag = Math.sqrt(drive * drive + strafe * strafe);
+                // Hide if idle AND no turn
+                if (mag < 0.1 && Math.abs(turn) < 0.1) {
+                    resArrow.style.opacity = '0';
                 } else {
-                    // Stable
-                    rotCW.classList.remove('active-cw');
-                    rotCCW.classList.remove('active-ccw');
+                    resArrow.style.opacity = '1';
+                    // Check logic: Linear vs Rotate
+                    const icon = resArrow.querySelector('i');
+                    if (Math.abs(turn) > 0.5 && mag < 0.3) {
+                        // Rotation Mode
+                        resArrow.style.transform = 'scale(1.2)';
+                        resArrow.style.color = '#D56BFF';
+                        if (icon) icon.className = turn > 0 ? 'bx bx-rotate-left' : 'bx bx-rotate-right';
+                    } else {
+                        // Driver Mode
+                        const angle = Math.atan2(drive, strafe) * (180 / Math.PI);
+                        // atan2(y=drive, x=strafe). (1,0) -> 90. We want 0 deg transform to be UP (90).
+                        // rotation = 90 - angle.
+                        const rot = 90 - angle;
+                        resArrow.style.transform = `rotate(${rot}deg) scale(${0.5 + mag * 0.5})`;
+                        resArrow.style.color = '#1E293B';
+                        if (icon) icon.className = 'bx bx-up-arrow-alt';
+                    }
                 }
             }
-        }
 
+            // 7. Graph Real-time Update
+            // ----------------------------------------------------------------
+            // We only update if simulation is running, to save performance? 
+            // No, user wants to see it ALIVE.
+            if (electricalChart && electricalChart.data) {
+                const ds = electricalChart.data.datasets;
 
+                // Add new data point
+                let newVal = 0;
+                if (currentMode === 'power') newVal = simPower;
+                else if (currentMode === 'voltage') newVal = simVoltage;
+                else if (currentMode === 'current') newVal = simCurrent;
 
+                // Only single line modes supported for simple demo animation
+                if (ds.length === 1) {
+                    const dataArr = ds[0].data;
+                    dataArr.push(newVal);
+                    dataArr.shift(); // Remove oldest
 
-        // Battery Logic (6S LiPo)
-        // 92% Battery -> ~24.8V
-        const batteryPercent = 92;
-        // Simple linear approx for demo: 0% = 19.0V, 100% = 25.2V
-        // V = 19.0 + (Percent * (6.2 / 100))
-        // Random fluctuation +/- 0.1V
-        const voltage = 19.0 + (batteryPercent * 0.062) + ((Math.random() - 0.5) * 0.1);
-
-        // Current Logic based on Movement State
-        // IDLE: 0.5 - 2 A
-        // MOVING: 10 - 25 A depending on drive/strafe
-        let baseCurrent = 1.0;
-        const totalDrive = Math.abs(drive) + Math.abs(strafe) + Math.abs(turn);
-        if (totalDrive > 0.1) {
-            baseCurrent = 5 + (totalDrive * 20); // Max ~25A
-        }
-        // Add noise
-        const current = baseCurrent + ((Math.random() - 0.5) * 1.5);
-
-        // Power = V * I
-        const power = voltage * current;
-
-        // RPM Logic (Handled in Omniwheel Visualizer loop for better accuracy)
-        // Leaving placeholder or ensuring it doesn't overwrite if 0
-        // const rpm = Math.floor(totalDrive * 5000) + Math.floor(Math.random() * 50);
-
-        // Update DOM
-        if (valVoltage) valVoltage.textContent = voltage.toFixed(1) + ' V';
-
-        // Update Avg Cell Voltage (6S Config)
-        const valCell = document.getElementById('valCell');
-        if (valCell) {
-            valCell.textContent = (voltage / 6).toFixed(2) + ' V';
-        }
-        if (valPower) valPower.textContent = Math.floor(power) + ' W';
-        // if (valRPM) valRPM.textContent = rpm + ' rpm'; // Moved to Visualizer Logic
-
-        if (valCurrent) {
-            valCurrent.textContent = current.toFixed(1) + ' A';
-
-            // Safety Color Coding
-            valCurrent.style.fontWeight = '700';
-            if (current < 10) {
-                valCurrent.style.color = '#4ADE80'; // Green
-            } else if (current < 20) {
-                valCurrent.style.color = '#FACC15'; // Yellow
-            } else {
-                valCurrent.style.color = '#EF4444'; // Red (Danger)
+                    // Update textual labels (rolling 'Seconds') if needed?
+                    // Actually labels are static '0s'...'59s' usually in this view.
+                    // But strictly, we don't need to update labels if we are just scrolling content.
+                    electricalChart.update('none'); // Efficient update
+                }
             }
-        }
 
+        } catch (err) {
+            console.error("Simulation Error:", err);
+            // Try to log to terminal so user sees it
+            const terminal = document.querySelector('.terminal-logs');
+            if (terminal) terminal.innerHTML += `<div style="color:red">ERROR: ${err.message}</div>`;
+        }
     }
 
-    setInterval(updateTime, 1000);
+    // Start Loop
+    setInterval(updateTime, 200); // 5Hz update for smoother animation
     updateTime(); // Initial call
 });
 
