@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-    base: '/Interface-DITER-Brone/', // Repo name for GitHub Pages
+    base: './', // Use relative path for safer deployment
     build: {
         outDir: 'dist',
     }

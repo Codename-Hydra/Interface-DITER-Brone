@@ -38,13 +38,10 @@ body {
 .app-container {
     width: 100%;
     max-width: 1400px;
-}
-
-/* Ensure height fits screen if needed, else auto */
-min-height: 100vh;
-display: flex;
-flex-direction: column;
-padding: 2rem;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 2rem;
 }
 
 .main-header {
