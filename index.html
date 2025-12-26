@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digital Twin Drone</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Boxicons for icons -->
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+</head>
+
+<body>
+    <div class="app-container">
+        <header class="main-header">
+            <h1>Digital Twin <strong>Brone</strong></h1>
+            <div class="header-controls">
+
+                <button id="btnStart" class="btn btn-primary">Start Program</button>
+                <button id="btnReset" class="btn btn-secondary">Reset Digital Twin</button>
+            </div>
+        </header>
+
+        <main class="dashboard-grid">
+            <!-- Battery Estimation Card -->
+            <div class="card battery-card">
+                <div class="card-content">
+                    <h3>Battery Estimation</h3>
+
+                    <div class="circular-progress-container">
+                        <div class="circular-progress">
+                            <div class="inner-circle">
+                                <span class="percentage">92%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="remaining-section">
+                        <p class="remaining-label">Remaining Time</p>
+                        <p class="remaining-value">1h 5m</p>
+                    </div>
+
+                    <!-- Avg Cell Voltage Pill -->
+                    <div class="battery-voltage-pill">
+                        <span class="icon">🔋</span>
+                        <span class="label">Avg Cell:</span>
+                        <span class="value" id="valCell">4.12 V</span>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Electrical Graph Card -->
+            <div class="card graph-card">
+                <div class="card-header">
+                    <h3>Electrical Graph</h3>
+                    <div class="graph-controls">
+                        <!-- Mode Only Here -->
+                        <div class="segmented-control" id="graphModeControls">
+                            <button class="control-btn active" data-value="power">Power</button>
+                            <button class="control-btn" data-value="voltage">Voltage</button>
+                            <button class="control-btn" data-value="current">Current</button>
+                            <button class="control-btn" data-value="torque">Torque</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="electricalChart"></canvas>
+                </div>
+
+                <!-- Time Range Moved to Footer -->
+                <div class="time-range-selector" id="timeRangeControls">
+                    <button class="control-btn active" data-value="seconds">Seconds</button>
+                    <button class="control-btn" data-value="minutes">Minutes</button>
+                    <button class="control-btn" data-value="hours">Hours</button>
+                </div>
+            </div>
+
+            <!-- Real-time Monitoring Card -->
+            <div class="card prediction-card">
+                <h3>Real-time Monitoring</h3>
+                <div class="prediction-list">
+                    <div class="prediction-item">
+                        <span class="label">Voltage :</span>
+                        <span class="value" id="valVoltage">24.8 V</span>
+                    </div>
+                    <div class="prediction-item">
+                        <span class="label">Current :</span>
+                        <span class="value" id="valCurrent">12 A</span>
+                    </div>
+                    <div class="prediction-item">
+                        <span class="label">Power :</span>
+                        <span class="value" id="valPower">264 W</span>
+                    </div>
+                    <div class="prediction-item">
+                        <span class="label">Avg RPM :</span>
+                        <span class="value" id="valRPM">0 rpm</span>
+                    </div>
+                    <div class="torque-section">
+                        <span class="label">Torque :</span>
+                        <div class="omni-visualizer">
+                            <div class="chassis-body">
+                                <div class="drone-front-indicator"></div>
+                                <div class="drone-core"></div>
+                                <div class="resultant-arrow" id="resArrow">
+                                    <i class='bx bx-up-arrow-alt'></i>
+                                </div>
+                            </div>
+
+                            <!-- FL Wheel -->
+                            <div class="wheel fl">
+                                <div class="wheel-arrow-container" id="arrowFL">
+                                    <i class='bx bx-up-arrow-alt'></i>
+                                </div>
+                                <span class="wheel-label">FL</span>
+                                <span class="wheel-rpm" id="rpmFL">0</span>
+                                <span class="wheel-val" id="valFL">+0.00 Nm</span>
+                            </div>
+
+                            <!-- FR Wheel -->
+                            <div class="wheel fr">
+                                <div class="wheel-arrow-container" id="arrowFR">
+                                    <i class='bx bx-up-arrow-alt'></i>
+                                </div>
+                                <span class="wheel-label">FR</span>
+                                <span class="wheel-rpm" id="rpmFR">0</span>
+                                <span class="wheel-val" id="valFR">+0.00 Nm</span>
+                            </div>
+
+                            <!-- RL Wheel -->
+                            <div class="wheel rl">
+                                <div class="wheel-arrow-container" id="arrowRL">
+                                    <i class='bx bx-up-arrow-alt'></i>
+                                </div>
+                                <span class="wheel-label">RL</span>
+                                <span class="wheel-rpm" id="rpmRL">0</span>
+                                <span class="wheel-val" id="valRL">+0.00 Nm</span>
+                            </div>
+
+                            <!-- RR Wheel -->
+                            <div class="wheel rr">
+                                <div class="wheel-arrow-container" id="arrowRR">
+                                    <i class='bx bx-up-arrow-alt'></i>
+                                </div>
+                                <span class="wheel-label">RR</span>
+                                <span class="wheel-rpm" id="rpmRR">0</span>
+                                <span class="wheel-val" id="valRR">+0.00 Nm</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Terminal Log Card -->
+            <div class="card terminal-card">
+                <h3>Terminal Log</h3>
+                <div class="terminal-window">
+                    <div class="terminal-logs">
+                        <span class="log-msg">Webots Connected</span>
+                    </div>
+                    <div class="terminal-status-bar">
+                        <div class="status-item">UPTIME: <span id="sysUptime">00:00:00</span></div>
+                        <div class="status-item">NODES: <span class="highlight">4</span></div>
+                        <div class="status-item">CPU: <span id="sysCpu" class="highlight">14%</span></div>
+                        <div class="status-item">MEM: <span id="sysMem" class="highlight">32%</span></div>
+                        <div class="status-item">TEMP: <span id="sysTemp" class="highlight">42°C</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connection Status -->
+            <div class="card status-card">
+                <h3>Connection Status</h3>
+                <div class="status-content">
+                    <div class="status-main">
+                        <div class="status-indicator-wrapper">
+                            <span class="status-dot"></span>
+                            <span class="status-text">Connected</span>
+                        </div>
+                        <div class="ping-wrapper">
+                            <i class='bx bx-wifi'></i>
+                            <span class="status-ping">20 ms</span>
+                        </div>
+                    </div>
+
+                    <div class="status-divider"></div>
+
+                    <div class="time-metrics">
+                        <div class="time-display">
+                            <span class="time-label"><i class='bx bx-time-five'></i> Current</span>
+                            <span id="currentTime" class="time-value">--:--:--</span>
+                        </div>
+                        <div class="time-display">
+                            <span class="time-label"><i class='bx bx-timer'></i> Running</span>
+                            <span id="runningTime" class="time-value">00:00:00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+        </main>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Confirm Action</h2>
+            <p id="modalMessage">Are you sure you want to proceed?</p>
+            <div class="modal-actions">
+                <button id="btnCancel" class="btn btn-secondary">Cancel</button>
+                <button id="btnConfirm" class="btn btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+
+</html>
