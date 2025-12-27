@@ -31,24 +31,50 @@
                 <div class="card-content">
                     <h3>Battery Estimation</h3>
 
-                    <div class="circular-progress-container">
-                        <div class="circular-progress">
-                            <div class="inner-circle">
-                                <span class="percentage">92%</span>
-                            </div>
-                        </div>
+                    <!-- Fill-Style Battery Indicator -->
+                    <div class="battery-fill-container">
+                        <svg class="battery-fill-svg" viewBox="0 0 120 180" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Gradient Definition -->
+                            <defs>
+                                <linearGradient id="batteryGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#6EE7B7;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#4ADE80;stop-opacity:1" />
+                                </linearGradient>
+                            </defs>
+
+                            <!-- Battery Terminal (Smaller, more subtle) -->
+                            <rect x="45" y="0" width="30" height="12" rx="6" ry="6" fill="#CBD5E1" opacity="0.8" />
+
+                            <!-- Battery Body Outline -->
+                            <rect x="10" y="15" width="100" height="155" rx="18" ry="18" fill="none" stroke="#CBD5E1"
+                                stroke-width="4" />
+
+                            <!-- Battery Body Background -->
+                            <rect x="13" y="18" width="94" height="149" rx="15" ry="15" fill="#F1F5F9" />
+
+                            <!-- Fill Level - 92% = 149 * 0.92 = 137 height -->
+                            <rect class="battery-fill-level" x="13" y="30" width="94" height="137" rx="15" ry="15"
+                                fill="url(#batteryGradient)" />
+
+                            <!-- Percentage Text -->
+                            <text class="battery-percentage-text" x="60" y="95" text-anchor="middle"
+                                dominant-baseline="middle">92%</text>
+                        </svg>
                     </div>
 
+                    <!-- Remaining Time -->
                     <div class="remaining-section">
                         <p class="remaining-label">Remaining Time</p>
                         <p class="remaining-value">1h 5m</p>
                     </div>
 
-                    <!-- Avg Cell Voltage Pill -->
-                    <div class="battery-voltage-pill">
-                        <span class="icon">🔋</span>
-                        <span class="label">Avg Cell:</span>
-                        <span class="value" id="valCell">4.12 V</span>
+                    <!-- Battery Specifications -->
+                    <div class="battery-spec-section">
+                        <div class="spec-icon">⚡</div>
+                        <div class="spec-text">
+                            <div class="spec-title">2x LiPo 4S</div>
+                            <div class="spec-details">5200mAh • Series</div>
+                        </div>
                     </div>
 
                 </div>
@@ -58,6 +84,30 @@
             <div class="card graph-card">
                 <div class="card-header">
                     <h3>Electrical Graph</h3>
+
+                    <!-- New Metrics Row (Moved from Right Card) -->
+                    <div class="metrics-row">
+                        <div class="metric-item">
+                            <span class="metric-label">Voltage</span>
+                            <span class="metric-value" id="valVoltage">24.8 V</span>
+                        </div>
+                        <div class="metric-divider"></div>
+                        <div class="metric-item">
+                            <span class="metric-label">Current</span>
+                            <span class="metric-value" id="valCurrent">12 A</span>
+                        </div>
+                        <div class="metric-divider"></div>
+                        <div class="metric-item">
+                            <span class="metric-label">Power</span>
+                            <span class="metric-value" id="valPower">264 W</span>
+                        </div>
+                        <div class="metric-divider"></div>
+                        <div class="metric-item">
+                            <span class="metric-label">Avg RPM</span>
+                            <span class="metric-value" id="valRPM">0 rpm</span>
+                        </div>
+                    </div>
+
                     <div class="graph-controls">
                         <!-- Mode Only Here -->
                         <div class="segmented-control" id="graphModeControls">
@@ -80,76 +130,125 @@
                 </div>
             </div>
 
-            <!-- Real-time Monitoring Card -->
-            <div class="card prediction-card">
-                <h3>Real-time Monitoring</h3>
-                <div class="prediction-list">
-                    <div class="prediction-item">
-                        <span class="label">Voltage :</span>
-                        <span class="value" id="valVoltage">24.8 V</span>
-                    </div>
-                    <div class="prediction-item">
-                        <span class="label">Current :</span>
-                        <span class="value" id="valCurrent">12 A</span>
-                    </div>
-                    <div class="prediction-item">
-                        <span class="label">Power :</span>
-                        <span class="value" id="valPower">264 W</span>
-                    </div>
-                    <div class="prediction-item">
-                        <span class="label">Avg RPM :</span>
-                        <span class="value" id="valRPM">0 rpm</span>
-                    </div>
-                    <div class="torque-section">
-                        <span class="label">Torque :</span>
-                        <div class="omni-visualizer">
-                            <div class="chassis-body">
-                                <div class="drone-front-indicator"></div>
-                                <div class="drone-core"></div>
-                                <div class="resultant-arrow" id="resArrow">
-                                    <i class='bx bx-up-arrow-alt'></i>
-                                </div>
-                            </div>
+            <!-- Rover Visualizer Card (Dedicated) -->
+            <div class="card visualizer-card">
+                <h3>Rover Visualizer</h3>
+                <!-- Torque Label Removed/Integrated into visualizer components if needed, or just kept clean -->
 
-                            <!-- FL Wheel -->
-                            <div class="wheel fl">
-                                <div class="wheel-arrow-container" id="arrowFL">
-                                    <i class='bx bx-up-arrow-alt'></i>
-                                </div>
-                                <span class="wheel-label">FL</span>
-                                <span class="wheel-rpm" id="rpmFL">0</span>
-                                <span class="wheel-val" id="valFL">+0.00 Nm</span>
-                            </div>
+                <div class="omni-visualizer">
+                    <!-- Overall Direction Indicator (Center) -->
+                    <div class="overall-direction" id="overallDirection">
+                        <i class='bx bx-up-arrow-alt'></i>
+                    </div>
 
-                            <!-- FR Wheel -->
-                            <div class="wheel fr">
-                                <div class="wheel-arrow-container" id="arrowFR">
-                                    <i class='bx bx-up-arrow-alt'></i>
-                                </div>
-                                <span class="wheel-label">FR</span>
-                                <span class="wheel-rpm" id="rpmFR">0</span>
-                                <span class="wheel-val" id="valFR">+0.00 Nm</span>
-                            </div>
+                    <!-- SVG Drone in Center (Absolute Positioned) -->
+                    <svg class="drone-svg" viewBox="0 0 200 200">
+                        <!-- Central Body -->
+                        <circle cx="100" cy="100" r="20" fill="#e2e8f0" stroke="#94a3b8" stroke-width="2" />
+                        <circle cx="100" cy="100" r="6" fill="#3b82f6" />
 
-                            <!-- RL Wheel -->
-                            <div class="wheel rl">
-                                <div class="wheel-arrow-container" id="arrowRL">
-                                    <i class='bx bx-up-arrow-alt'></i>
-                                </div>
-                                <span class="wheel-label">RL</span>
-                                <span class="wheel-rpm" id="rpmRL">0</span>
-                                <span class="wheel-val" id="valRL">+0.00 Nm</span>
-                            </div>
+                        <!-- Drone Arms (Diagonal Lines) -->
+                        <line x1="85" y1="85" x2="30" y2="30" stroke="#94a3b8" stroke-width="6"
+                            stroke-linecap="round" />
+                        <line x1="115" y1="85" x2="170" y2="30" stroke="#94a3b8" stroke-width="6"
+                            stroke-linecap="round" />
+                        <line x1="85" y1="115" x2="30" y2="170" stroke="#94a3b8" stroke-width="6"
+                            stroke-linecap="round" />
+                        <line x1="115" y1="115" x2="170" y2="170" stroke="#94a3b8" stroke-width="6"
+                            stroke-linecap="round" />
 
-                            <!-- RR Wheel -->
-                            <div class="wheel rr">
-                                <div class="wheel-arrow-container" id="arrowRR">
-                                    <i class='bx bx-up-arrow-alt'></i>
-                                </div>
-                                <span class="wheel-label">RR</span>
-                                <span class="wheel-rpm" id="rpmRR">0</span>
-                                <span class="wheel-val" id="valRR">+0.00 Nm</span>
+                        <!-- Motor Indicators -->
+                        <circle cx="30" cy="30" r="10" fill="white" stroke="#cbd5e1" stroke-width="2" />
+                        <circle cx="170" cy="30" r="10" fill="white" stroke="#cbd5e1" stroke-width="2" />
+                        <circle cx="30" cy="170" r="10" fill="white" stroke="#cbd5e1" stroke-width="2" />
+                        <circle cx="170" cy="170" r="10" fill="white" stroke="#cbd5e1" stroke-width="2" />
+                    </svg>
+
+                    <!-- FL Motor Card (Top Left) -->
+                    <div class="motor-card motor-fl">
+                        <div class="card-header-mini">
+                            <span class="position-label">FL</span>
+                            <span class="position-desc">Front Left</span>
+                        </div>
+                        <div class="rpm-display">
+                            <span class="rpm-value" id="rpmFL">0</span>
+                            <span class="rpm-unit">RPM</span>
+                        </div>
+                        <div class="torque-display">
+                            <div class="torque-icon">
+                                <i class='bx bx-cog'></i>
                             </div>
+                            <span class="torque-label">TORQUE</span>
+                            <span class="torque-value" id="valFL">+0.00 <span class="torque-unit">Nm</span></span>
+                        </div>
+                        <div class="rpm-progress">
+                            <div class="rpm-progress-bar" id="progFL"></div>
+                        </div>
+                    </div>
+
+                    <!-- FR Motor Card (Top Right) -->
+                    <div class="motor-card motor-fr">
+                        <div class="card-header-mini">
+                            <span class="position-label">FR</span>
+                            <span class="position-desc">Front Right</span>
+                        </div>
+                        <div class="rpm-display">
+                            <span class="rpm-value" id="rpmFR">0</span>
+                            <span class="rpm-unit">RPM</span>
+                        </div>
+                        <div class="torque-display">
+                            <div class="torque-icon">
+                                <i class='bx bx-cog'></i>
+                            </div>
+                            <span class="torque-label">TORQUE</span>
+                            <span class="torque-value" id="valFR">+0.00 <span class="torque-unit">Nm</span></span>
+                        </div>
+                        <div class="rpm-progress">
+                            <div class="rpm-progress-bar" id="progFR"></div>
+                        </div>
+                    </div>
+
+                    <!-- RL Motor Card (Bottom Left) -->
+                    <div class="motor-card motor-rl">
+                        <div class="card-header-mini">
+                            <span class="position-label">RL</span>
+                            <span class="position-desc">Rear Left</span>
+                        </div>
+                        <div class="rpm-display">
+                            <span class="rpm-value" id="rpmRL">0</span>
+                            <span class="rpm-unit">RPM</span>
+                        </div>
+                        <div class="torque-display">
+                            <div class="torque-icon">
+                                <i class='bx bx-cog'></i>
+                            </div>
+                            <span class="torque-label">TORQUE</span>
+                            <span class="torque-value" id="valRL">+0.00 <span class="torque-unit">Nm</span></span>
+                        </div>
+                        <div class="rpm-progress">
+                            <div class="rpm-progress-bar" id="progRL"></div>
+                        </div>
+                    </div>
+
+                    <!-- RR Motor Card (Bottom Right) -->
+                    <div class="motor-card motor-rr">
+                        <div class="card-header-mini">
+                            <span class="position-label">RR</span>
+                            <span class="position-desc">Rear Right</span>
+                        </div>
+                        <div class="rpm-display">
+                            <span class="rpm-value" id="rpmRR">0</span>
+                            <span class="rpm-unit">RPM</span>
+                        </div>
+                        <div class="torque-display">
+                            <div class="torque-icon">
+                                <i class='bx bx-cog'></i>
+                            </div>
+                            <span class="torque-label">TORQUE</span>
+                            <span class="torque-value" id="valRR">+0.00 <span class="torque-unit">Nm</span></span>
+                        </div>
+                        <div class="rpm-progress">
+                            <div class="rpm-progress-bar" id="progRR"></div>
                         </div>
                     </div>
                 </div>

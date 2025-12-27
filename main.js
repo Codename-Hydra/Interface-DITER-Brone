@@ -559,36 +559,60 @@ document.addEventListener('DOMContentLoaded', function () {
                 dom.valCurrent.style.color = simCurrent < 10 ? '#4ADE80' : (simCurrent < 20 ? '#FACC15' : '#EF4444');
             }
 
-            // 6. Visualizer Updates (Wheels & Arrows)
+            // 6. Visualizer Updates (Wheels & Inverse Kinematics)
             // ----------------------------------------------------------------
-            // Kinematics
-            let fl = drive + strafe + turn;
-            let fr = drive - strafe - turn;
-            let rl = drive - strafe + turn;
-            let rr = drive + strafe - turn;
+            // Parameters (from cek_tombol.py)
+            const L = 0.208;  // Wheel base distance
+            const r_wheel = 0.06; // Wheel radius
+            const sin_a = 0.7071; // sin(45°)
+            const cos_a = 0.7071; // cos(45°)
 
-            // Normalize
-            const maxM = Math.max(Math.abs(fl), Math.abs(fr), Math.abs(rl), Math.abs(rr), 1.0);
-            fl /= maxM; fr /= maxM; rl /= maxM; rr /= maxM;
+            // Input: drive (vy in Python), strafe (vx), turn (vtheta)
+            const vx = strafe;
+            const vy = drive;
+            const vtheta = turn;
+
+            // Inverse Kinematics from cek_tombol.py
+            // FR (w1) - Front Right
+            const w1_FR = (-cos_a * vx + sin_a * vy + L * vtheta) / r_wheel;
+            // FL (w2) - Front Left  
+            const w2_FL = (-cos_a * vx - sin_a * vy + L * vtheta) / r_wheel;
+            // RL (w3) - Rear Left
+            const w3_RL = (cos_a * vx - sin_a * vy + L * vtheta) / r_wheel;
+            // RR (w4) - Rear Right
+            const w4_RR = (cos_a * vx + sin_a * vy + L * vtheta) / r_wheel;
+
+            // Normalize for display (convert to torque approximation)
+            const maxVel = Math.max(Math.abs(w1_FR), Math.abs(w2_FL), Math.abs(w3_RL), Math.abs(w4_RR), 10.0);
+            const fl = w2_FL / maxVel; // FL
+            const fr = w1_FR / maxVel; // FR
+            const rl = w3_RL / maxVel; // RL  
+            const rr = w4_RR / maxVel; // RR
 
             // Update Wheels
             function setWheel(id, val) {
-                const wheel = dom.wheels[id];
-                if (wheel && wheel.arrow && wheel.rpm) {
+                // Update RPM value (without unit - unit is in HTML)
+                const rpmEl = document.getElementById('rpm' + id);
+                // Update Torque value (keeping format)
+                const valEl = document.getElementById('val' + id);
+                // Update Progress Bar
+                const progEl = document.getElementById('prog' + id);
+
+                if (rpmEl && valEl) {
                     const abs = Math.abs(val);
                     const rpm = Math.floor(abs * 4000) + (abs > 0 ? Math.floor(Math.random() * 50) : 0);
 
-                    // Arrow
-                    const rot = val >= 0 ? 0 : 180;
-                    const scale = abs < 0.05 ? 0.3 : (0.5 + abs * 0.5);
-                    const color = val >= 0 ? '#4ADE80' : '#EF4444';
+                    // Update RPM text (just number)
+                    rpmEl.textContent = rpm;
 
-                    wheel.arrow.style.transform = `rotate(${rot}deg) scale(${scale})`;
-                    wheel.arrow.style.color = color;
+                    // Update Torque text
+                    valEl.innerHTML = (val >= 0 ? '+' : '') + val.toFixed(2) + ' <span class="torque-unit">Nm</span>';
 
-                    // Text
-                    wheel.val.textContent = (val >= 0 ? '+' : '') + val.toFixed(2) + ' Nm';
-                    wheel.rpm.textContent = rpm + ' RPM';
+                    // Update Progress Bar (0-250 RPM range)
+                    if (progEl) {
+                        const percentage = Math.min((rpm / 250) * 100, 100);
+                        progEl.style.width = percentage + '%';
+                    }
 
                     return rpm;
                 }
@@ -603,30 +627,38 @@ document.addEventListener('DOMContentLoaded', function () {
             const avgRPM = Math.floor((rpm1 + rpm2 + rpm3 + rpm4) / 4);
             if (dom.valRPM) dom.valRPM.textContent = avgRPM;
 
-            // Resultant Arrow
-            if (dom.resArrow) {
+            // Overall Direction Indicator (Center of Visualizer)
+            const overallDirection = document.getElementById('overallDirection');
+            if (overallDirection) {
                 const mag = Math.sqrt(drive * drive + strafe * strafe);
-                // Hide if idle AND no turn
+                const icon = overallDirection.querySelector('i');
+
+                // Hide if idle
                 if (mag < 0.1 && Math.abs(turn) < 0.1) {
-                    dom.resArrow.style.opacity = '0';
+                    overallDirection.classList.remove('active');
                 } else {
-                    dom.resArrow.style.opacity = '1';
-                    // Check logic: Linear vs Rotate
-                    const icon = dom.resIcon;
+                    overallDirection.classList.add('active');
+
+                    // Check if rotating (turn dominant)
                     if (Math.abs(turn) > 0.5 && mag < 0.3) {
                         // Rotation Mode
-                        dom.resArrow.style.transform = 'scale(1.2)';
-                        dom.resArrow.style.color = '#D56BFF';
-                        if (icon) icon.className = turn > 0 ? 'bx bx-rotate-left' : 'bx bx-rotate-right';
+                        overallDirection.classList.add('rotating');
+                        if (icon) {
+                            icon.className = turn > 0 ? 'bx bx-rotate-left' : 'bx bx-rotate-right';
+                            icon.style.transform = '';
+                        }
                     } else {
-                        // Driver Mode
-                        const angle = Math.atan2(drive, strafe) * (180 / Math.PI);
-                        // atan2(y=drive, x=strafe). (1,0) -> 90. We want 0 deg transform to be UP (90).
-                        // rotation = 90 - angle.
-                        const rot = 90 - angle;
-                        dom.resArrow.style.transform = `rotate(${rot}deg) scale(${0.5 + mag * 0.5})`;
-                        dom.resArrow.style.color = '#1E293B';
-                        if (icon) icon.className = 'bx bx-up-arrow-alt';
+                        // Linear Movement Mode
+                        overallDirection.classList.remove('rotating');
+                        if (icon) {
+                            // Calculate angle from drive (vy) and strafe (vx)
+                            // atan2(y, x) where forward is drive, right is strafe
+                            const angle = Math.atan2(drive, strafe) * (180 / Math.PI);
+                            // Rotate arrow: 0° = UP, so we need to adjust
+                            const rotation = 90 - angle;
+                            icon.className = 'bx bx-up-arrow-alt';
+                            icon.style.transform = `rotate(${rotation}deg)`;
+                        }
                     }
                 }
             }
