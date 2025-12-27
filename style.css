@@ -66,15 +66,17 @@ body {
 }
 
 .card {
-    /* Milky Glass Effect */
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    /* Milky Glass Effect - OPTIMIZED */
+    background: rgba(255, 255, 255, 0.95);
+    /* More opaque for fake glass */
+    /* backdrop-filter: blur(20px); -- REMOVED FOR PERFORMANCE */
+    /* -webkit-backdrop-filter: blur(20px); -- REMOVED FOR PERFORMANCE */
     border: 1px solid rgba(255, 255, 255, 0.6);
 
     border-radius: var(--border-radius);
     padding: 1.5rem;
-    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    /* Simplified shadow */
     /* Softer colored shadow */
     display: flex;
     flex-direction: column;
@@ -343,8 +345,8 @@ h3 {
 
     /* 1. Frosted Glass Material */
     /* OPTIMIZATION: Fake Glass (Solid Semi-transparent) */
-    background: rgba(248, 250, 252, 0.92);
-    /* backdrop-filter removed for performance */
+    background: rgba(248, 250, 252, 0.95);
+    /* Increased opacity */
 
     /* 2. Rim Light (Edge Definition) */
     border-top: 1px solid rgba(255, 255, 255, 0.8);
@@ -357,10 +359,9 @@ h3 {
 
     /* 3. Soft Colored Shadow & Inner Volume */
     box-shadow:
-        0 15px 35px rgba(124, 58, 237, 0.15),
-        /* Purple-tinted deep shadow */
-        inset 0 0 20px rgba(255, 255, 255, 0.5);
-    /* Inner glow/volume */
+        0 10px 20px rgba(124, 58, 237, 0.1);
+    /* Simplified shadow */
+    /* inset 0 0 20px rgba(255, 255, 255, 0.5); -- REMOVED INNER GLOW FOR PERF */
 
     display: flex;
     justify-content: center;

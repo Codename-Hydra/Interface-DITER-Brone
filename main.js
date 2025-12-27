@@ -441,35 +441,75 @@ document.addEventListener('DOMContentLoaded', function () {
         logToTerminal('Webots Connected');
     }
 
+    // Data Aggregation Buffers
+    const secBuffer = { power: [], voltage: [], current: [] };
+    const minBuffer = { power: [], voltage: [], current: [] };
+    let lastSecondUpdate = 0;
+
+    // OPTIMIZATION: Cache DOM Elements
+    const dom = {
+        clock: document.getElementById('currentTime'),
+        running: document.getElementById('runningTime'),
+        uptime: document.getElementById('sysUptime'),
+        ping: document.querySelector('.status-ping'),
+        valVoltage: document.getElementById('valVoltage'),
+        valCurrent: document.getElementById('valCurrent'),
+        valPower: document.getElementById('valPower'),
+        valCell: document.getElementById('valCell'),
+        valRPM: document.getElementById('valRPM'),
+        resArrow: document.getElementById('resArrow'),
+        resIcon: document.getElementById('resArrow') ? document.getElementById('resArrow').querySelector('i') : null,
+        wheels: {
+            FL: {
+                arrow: document.getElementById('arrowFL'),
+                val: document.getElementById('valFL'),
+                rpm: document.getElementById('rpmFL')
+            },
+            FR: {
+                arrow: document.getElementById('arrowFR'),
+                val: document.getElementById('valFR'),
+                rpm: document.getElementById('rpmFR')
+            },
+            RL: {
+                arrow: document.getElementById('arrowRL'),
+                val: document.getElementById('valRL'),
+                rpm: document.getElementById('rpmRL')
+            },
+            RR: {
+                arrow: document.getElementById('arrowRR'),
+                val: document.getElementById('valRR'),
+                rpm: document.getElementById('rpmRR')
+            }
+        }
+    };
+
     function updateTime() {
         try {
             const now = new Date();
 
             // 1. Update Clock
             // ----------------------------------------------------------------
-            if (currentTimeEl) {
-                currentTimeEl.textContent = now.toLocaleTimeString('en-GB', { hour12: false });
+            if (dom.clock) {
+                dom.clock.textContent = now.toLocaleTimeString('en-GB', { hour12: false });
             }
 
-            if (runningTimeEl) {
+            if (dom.running) {
                 const diff = now - startTimeComponent;
                 const hours = Math.floor(diff / 3600000); // Total hours
                 const minutes = Math.floor((diff % 3600000) / 60000);
                 const seconds = Math.floor((diff % 60000) / 1000);
-                runningTimeEl.textContent =
+                dom.running.textContent =
                     `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
             }
 
             // 2. Update System Status (Terminal & Ping)
             // ----------------------------------------------------------------
-            const sysUptimeEl = document.getElementById('sysUptime');
-            if (sysUptimeEl && runningTimeEl) sysUptimeEl.textContent = runningTimeEl.textContent;
+            if (dom.uptime && dom.running) dom.uptime.textContent = dom.running.textContent;
 
-            const pingEl = document.querySelector('.status-ping');
-            if (pingEl && Math.random() > 0.8) { // Update occasionally
+            if (dom.ping && Math.random() > 0.8) { // Update occasionally
                 const ping = Math.floor(Math.random() * (40 - 15 + 1) + 15);
-                pingEl.textContent = ping + ' ms';
-                pingEl.style.color = ping < 50 ? '#4ADE80' : (ping < 100 ? '#FACC15' : '#EF4444');
+                dom.ping.textContent = ping + ' ms';
+                dom.ping.style.color = ping < 50 ? '#4ADE80' : (ping < 100 ? '#FACC15' : '#EF4444');
             }
 
             // 3. Robot Simulation (State Machine)
@@ -480,8 +520,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
             let drive = 0, strafe = 0, turn = 0;
 
-            // Auto-Mode if not manually "Started" (or just always for demo)
-            // Let's make it always run for the demo unless hidden
             switch (cycleIndex) {
                 case 0: /* IDLE */ drive = 0; strafe = 0; turn = 0; break;
                 case 1: /* FWD */  drive = 0.8; strafe = 0; turn = 0; break;
@@ -513,17 +551,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // 5. Update DOM Elements
             // ----------------------------------------------------------------
-            const valVoltage = document.getElementById('valVoltage');
-            const valCurrent = document.getElementById('valCurrent');
-            const valPower = document.getElementById('valPower');
-            const valCell = document.getElementById('valCell');
-
-            if (valVoltage) valVoltage.textContent = simVoltage.toFixed(1) + ' V';
-            if (valCell) valCell.textContent = (simVoltage / 6).toFixed(2) + ' V';
-            if (valPower) valPower.textContent = Math.floor(simPower) + ' W';
-            if (valCurrent) {
-                valCurrent.textContent = simCurrent.toFixed(1) + ' A';
-                valCurrent.style.color = simCurrent < 10 ? '#4ADE80' : (simCurrent < 20 ? '#FACC15' : '#EF4444');
+            if (dom.valVoltage) dom.valVoltage.textContent = simVoltage.toFixed(1) + ' V';
+            if (dom.valCell) dom.valCell.textContent = (simVoltage / 6).toFixed(2) + ' V';
+            if (dom.valPower) dom.valPower.textContent = Math.floor(simPower) + ' W';
+            if (dom.valCurrent) {
+                dom.valCurrent.textContent = simCurrent.toFixed(1) + ' A';
+                dom.valCurrent.style.color = simCurrent < 10 ? '#4ADE80' : (simCurrent < 20 ? '#FACC15' : '#EF4444');
             }
 
             // 6. Visualizer Updates (Wheels & Arrows)
@@ -540,11 +573,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // Update Wheels
             function setWheel(id, val) {
-                const arr = document.getElementById('arrow' + id);
-                const txt = document.getElementById('val' + id);
-                const rpmTxt = document.getElementById('rpm' + id);
-
-                if (arr && txt && rpmTxt) {
+                const wheel = dom.wheels[id];
+                if (wheel && wheel.arrow && wheel.rpm) {
                     const abs = Math.abs(val);
                     const rpm = Math.floor(abs * 4000) + (abs > 0 ? Math.floor(Math.random() * 50) : 0);
 
@@ -553,12 +583,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     const scale = abs < 0.05 ? 0.3 : (0.5 + abs * 0.5);
                     const color = val >= 0 ? '#4ADE80' : '#EF4444';
 
-                    arr.style.transform = `rotate(${rot}deg) scale(${scale})`;
-                    arr.style.color = color;
+                    wheel.arrow.style.transform = `rotate(${rot}deg) scale(${scale})`;
+                    wheel.arrow.style.color = color;
 
                     // Text
-                    txt.textContent = (val >= 0 ? '+' : '') + val.toFixed(2) + ' Nm';
-                    rpmTxt.textContent = rpm + ' RPM';
+                    wheel.val.textContent = (val >= 0 ? '+' : '') + val.toFixed(2) + ' Nm';
+                    wheel.rpm.textContent = rpm + ' RPM';
 
                     return rpm;
                 }
@@ -571,24 +601,22 @@ document.addEventListener('DOMContentLoaded', function () {
             const rpm4 = setWheel('RR', rr);
 
             const avgRPM = Math.floor((rpm1 + rpm2 + rpm3 + rpm4) / 4);
-            const valRPM = document.getElementById('valRPM');
-            if (valRPM) valRPM.textContent = avgRPM;
+            if (dom.valRPM) dom.valRPM.textContent = avgRPM;
 
             // Resultant Arrow
-            const resArrow = document.getElementById('resArrow');
-            if (resArrow) {
+            if (dom.resArrow) {
                 const mag = Math.sqrt(drive * drive + strafe * strafe);
                 // Hide if idle AND no turn
                 if (mag < 0.1 && Math.abs(turn) < 0.1) {
-                    resArrow.style.opacity = '0';
+                    dom.resArrow.style.opacity = '0';
                 } else {
-                    resArrow.style.opacity = '1';
+                    dom.resArrow.style.opacity = '1';
                     // Check logic: Linear vs Rotate
-                    const icon = resArrow.querySelector('i');
+                    const icon = dom.resIcon;
                     if (Math.abs(turn) > 0.5 && mag < 0.3) {
                         // Rotation Mode
-                        resArrow.style.transform = 'scale(1.2)';
-                        resArrow.style.color = '#D56BFF';
+                        dom.resArrow.style.transform = 'scale(1.2)';
+                        dom.resArrow.style.color = '#D56BFF';
                         if (icon) icon.className = turn > 0 ? 'bx bx-rotate-left' : 'bx bx-rotate-right';
                     } else {
                         // Driver Mode
@@ -596,49 +624,102 @@ document.addEventListener('DOMContentLoaded', function () {
                         // atan2(y=drive, x=strafe). (1,0) -> 90. We want 0 deg transform to be UP (90).
                         // rotation = 90 - angle.
                         const rot = 90 - angle;
-                        resArrow.style.transform = `rotate(${rot}deg) scale(${0.5 + mag * 0.5})`;
-                        resArrow.style.color = '#1E293B';
+                        dom.resArrow.style.transform = `rotate(${rot}deg) scale(${0.5 + mag * 0.5})`;
+                        dom.resArrow.style.color = '#1E293B';
                         if (icon) icon.className = 'bx bx-up-arrow-alt';
                     }
                 }
             }
 
-            // 7. Graph Real-time Update
+            // 7. Graph Real-time Update (Cascading)
             // ----------------------------------------------------------------
-            // We only update if simulation is running, to save performance? 
-            // No, user wants to see it ALIVE.
-            if (electricalChart && electricalChart.data) {
-                const ds = electricalChart.data.datasets;
+            function updateModeData(mode, range, value) {
+                if (!chartData[mode] || !chartData[mode].ranges[range]) return;
 
-                // Add new data point
-                let newVal = 0;
-                if (currentMode === 'power') newVal = simPower;
-                else if (currentMode === 'voltage') newVal = simVoltage;
-                else if (currentMode === 'current') newVal = simCurrent;
+                // For multi-line charts (Torque), we'd need to handle datasets array. 
+                // BUT current request implies simple single-line data mostly (Power/Voltage/Current).
+                // Existing code only supported updating single-line graphs in real-time.
+                // We will stick to that safe path.
 
-                // Only single line modes supported for simple demo animation
-                if (ds.length === 1) {
-                    const dataArr = ds[0].data;
-                    dataArr.push(newVal);
-                    dataArr.shift(); // Remove oldest
+                if (chartData[mode].type === 'multi') return; // Skip complex updates for now to avoid errors
 
-                    // Update textual labels (rolling 'Seconds') if needed?
-                    // Actually labels are static '0s'...'59s' usually in this view.
-                    // But strictly, we don't need to update labels if we are just scrolling content.
-                    electricalChart.update('none'); // Efficient update
+                const rangeData = chartData[mode].ranges[range];
+                const dataArr = rangeData.data;
+                dataArr.push(value);
+                dataArr.shift(); // Keep fixed length
+            }
+
+            // Only update data if 1 second has passed
+            // Use date.now() as lastSecondUpdate is initialized in global scope
+            if (Date.now() - lastSecondUpdate >= 1000) {
+                lastSecondUpdate = Date.now();
+
+                // A. Update SECONDS (Every 1s)
+                updateModeData('power', 'seconds', simPower);
+                updateModeData('voltage', 'seconds', simVoltage);
+                updateModeData('current', 'seconds', simCurrent);
+
+                // Collect for Minutes Aggregation
+                secBuffer.power.push(simPower);
+                secBuffer.voltage.push(simVoltage);
+                secBuffer.current.push(simCurrent);
+
+                // B. Update MINUTES (Every 60s)
+                if (secBuffer.power.length >= 60) {
+                    const avgPower = secBuffer.power.reduce((a, b) => a + b, 0) / 60;
+                    const avgVoltage = secBuffer.voltage.reduce((a, b) => a + b, 0) / 60;
+                    const avgCurrent = secBuffer.current.reduce((a, b) => a + b, 0) / 60;
+
+                    updateModeData('power', 'minutes', avgPower);
+                    updateModeData('voltage', 'minutes', avgVoltage);
+                    updateModeData('current', 'minutes', avgCurrent);
+
+                    // Collect for Hours Aggregation
+                    minBuffer.power.push(avgPower);
+                    minBuffer.voltage.push(avgVoltage);
+                    minBuffer.current.push(avgCurrent);
+
+                    // Clear Seconds Buffer
+                    secBuffer.power = [];
+                    secBuffer.voltage = [];
+                    secBuffer.current = [];
                 }
+
+                // C. Update HOURS (Every 60m)
+                if (minBuffer.power.length >= 60) {
+                    const avgPower = minBuffer.power.reduce((a, b) => a + b, 0) / 60;
+                    const avgVoltage = minBuffer.voltage.reduce((a, b) => a + b, 0) / 60;
+                    const avgCurrent = minBuffer.current.reduce((a, b) => a + b, 0) / 60;
+
+                    updateModeData('power', 'hours', avgPower);
+                    updateModeData('voltage', 'hours', avgVoltage);
+                    updateModeData('current', 'hours', avgCurrent);
+
+                    // Clear Minutes Buffer
+                    minBuffer.power = [];
+                    minBuffer.voltage = [];
+                    minBuffer.current = [];
+                }
+
+                // D. Refresh Chart (Only if data changed)
+                if (electricalChart) {
+                    electricalChart.update('none');
+                }
+            }
+
+            // D. Refresh Chart
+            // Just call update() - Chart.js picks up the modified array reference
+            if (electricalChart) {
+                electricalChart.update('none');
             }
 
         } catch (err) {
             console.error("Simulation Error:", err);
-            // Try to log to terminal so user sees it
-            const terminal = document.querySelector('.terminal-logs');
-            if (terminal) terminal.innerHTML += `<div style="color:red">ERROR: ${err.message}</div>`;
         }
     }
 
     // Start Loop
-    setInterval(updateTime, 200); // 5Hz update for smoother animation
+    setInterval(updateTime, 200); // 5Hz update
     updateTime(); // Initial call
 });
 
