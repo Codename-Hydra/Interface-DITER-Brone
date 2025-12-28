@@ -1,12 +1,112 @@
 // Chart Configuration
 import Chart from 'chart.js/auto';
 
+// Type Definitions
+interface TimeRangeData {
+    labels: string[];
+    data: number[];
+}
+
+interface MultiLineDataset {
+    label: string;
+    data: number[];
+    color: string;
+}
+
+interface MultiTimeRangeData {
+    labels: string[];
+    datasets: MultiLineDataset[];
+}
+
+interface SingleModeData {
+    type?: string;
+    label: string;
+    color: string;
+    bgColor: string;
+    unit: string;
+    min: number;
+    max: number;
+    ranges: {
+        seconds: TimeRangeData;
+        minutes: TimeRangeData;
+        hours: TimeRangeData;
+    };
+}
+
+interface MultiModeData {
+    type: 'multi';
+    unit: string;
+    min: number;
+    max: number;
+    ranges: {
+        seconds: MultiTimeRangeData;
+        minutes: MultiTimeRangeData;
+        hours: MultiTimeRangeData;
+    };
+}
+
+
+
+interface ChartDataConfig {
+    power: SingleModeData;
+    voltage: SingleModeData;
+    current: SingleModeData;
+    torque: MultiModeData;
+}
+
+interface DOMElements {
+    clock: HTMLElement | null;
+    running: HTMLElement | null;
+    uptime: HTMLElement | null;
+    ping: HTMLElement | null;
+    valVoltage: HTMLElement | null;
+    valCurrent: HTMLElement | null;
+    valPower: HTMLElement | null;
+    valCell: HTMLElement | null;
+    valRPM: HTMLElement | null;
+    resArrow: HTMLElement | null;
+    resIcon: HTMLElement | null;
+    wheels: {
+        FL: WheelElements;
+        FR: WheelElements;
+        RL: WheelElements;
+        RR: WheelElements;
+    };
+}
+
+interface WheelElements {
+    arrow: HTMLElement | null;
+    val: HTMLElement | null;
+    rpm: HTMLElement | null;
+}
+
+interface DataBuffer {
+    power: number[];
+    voltage: number[];
+    current: number[];
+}
+
+interface ValueRange {
+    min: number;
+    max: number;
+    init: number;
+}
+
 document.addEventListener('DOMContentLoaded', function () {
-    const ctx = document.getElementById('electricalChart').getContext('2d');
+    const canvas = document.getElementById('electricalChart') as HTMLCanvasElement | null;
+    if (!canvas) {
+        console.error('Canvas element not found');
+        return;
+    }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+        console.error('Could not get 2D context');
+        return;
+    }
 
     // Helper to generate dense data (e.g., for 60 seconds)
-    function generateDenseData(points, min, max, initialValue) {
-        const data = [];
+    function generateDenseData(points: number, min: number, max: number, initialValue: number): number[] {
+        const data: number[] = [];
         let val = initialValue || (min + max) / 2;
         for (let i = 0; i < points; i++) {
             // Random walk
@@ -22,12 +122,22 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Generate labels for Seconds (0s-59s), Minutes (0m-59m), Hours (0h-24h)
-    const denseLabels = Array.from({ length: 60 }, (_, i) => i + 's');
-    const denseMinutesLabels = Array.from({ length: 60 }, (_, i) => i + 'm');
-    const denseHoursLabels = Array.from({ length: 25 }, (_, i) => i + 'h');
+    const denseLabels: string[] = Array.from({ length: 60 }, (_, i) => i + 's');
+    const denseMinutesLabels: string[] = Array.from({ length: 60 }, (_, i) => i + 'm');
+    const denseHoursLabels: string[] = Array.from({ length: 25 }, (_, i) => i + 'h');
 
     // Helper to create standard single-line data structure
-    function createModeData(label, color, bgColor, unit, min, max, valSec, valMin, valHour) {
+    function createModeData(
+        label: string,
+        color: string,
+        bgColor: string,
+        unit: string,
+        min: number,
+        max: number,
+        valSec: ValueRange,
+        valMin: ValueRange,
+        valHour: ValueRange
+    ): SingleModeData {
         return {
             label, color, bgColor, unit, min, max,
             ranges: {
@@ -39,7 +149,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Data for different modes and time ranges
-    const chartData = {
+    const chartData: ChartDataConfig = {
         power: createModeData('Power', '#FF6B9C', 'rgba(255, 107, 156, 0.1)', 'W', 0, 400,
             { min: 240, max: 290, init: 264 }, // Widened range for more noise (50 * 0.05 = 2.5W jitter + random walk)
             { min: 255, max: 275, init: 260 },
@@ -91,34 +201,73 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    let currentMode = 'power';
-    let currentTimeRange = 'seconds'; // Default to seconds
+    let currentMode: keyof ChartDataConfig = 'power';
+    let currentTimeRange: 'seconds' | 'minutes' | 'hours' = 'seconds'; // Default to seconds
 
 
 
-    function hexToRgba(hex, alpha) {
-        // Simple hex to rgba converter
-        let c;
-        if (/^#([A-Fa-f0-9]{3}){1,2}$/.test(hex)) {
-            c = hex.substring(1).split('');
-            if (c.length == 3) {
-                c = [c[0], c[0], c[1], c[1], c[2], c[2]];
-            }
-            c = '0x' + c.join('');
-            return 'rgba(' + [(c >> 16) & 255, (c >> 8) & 255, c & 255].join(',') + ',' + alpha + ')';
-        }
-        return hex;
-    }
+
 
     // Gradient Helper
-    function createGradient(ctx, color) {
-        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-        gradient.addColorStop(0, hexToRgba(color, 0.4)); // Start slightly transparent
-        gradient.addColorStop(1, hexToRgba(color, 0.0)); // Fade to nothing
+    function createGradient(ctx: CanvasRenderingContext2D, hexColor: string): CanvasGradient | string {
+        // Convert hex to rgb
+        let r = 0, g = 0, b = 0;
+        if (hexColor.length === 4) {
+            r = parseInt(hexColor[1] + hexColor[1], 16);
+            g = parseInt(hexColor[2] + hexColor[2], 16);
+            b = parseInt(hexColor[3] + hexColor[3], 16);
+        } else if (hexColor.length === 7) {
+            r = parseInt(hexColor.substr(1, 2), 16);
+            g = parseInt(hexColor.substr(3, 2), 16);
+            b = parseInt(hexColor.substr(5, 2), 16);
+        }
+
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300); // Adjust height roughly
+        gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.5)`);
+        gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.0)`);
         return gradient;
     }
 
+    // Update getDatasetForMode to use gradients
+    function getDatasetForMode(mode: keyof ChartDataConfig, range: 'seconds' | 'minutes' | 'hours'): any[] {
+        const modeData = chartData[mode];
+        const rangeData = modeData.ranges[range];
 
+        if (modeData.type === 'multi') {
+            const multiRangeData = rangeData as MultiTimeRangeData;
+            return multiRangeData.datasets.map((ds: MultiLineDataset) => ({
+                label: ds.label,
+                data: ds.data,
+                borderColor: ds.color,
+                backgroundColor: createGradient(ctx!, ds.color), // Use Gradient!
+                borderWidth: 2,
+                tension: 0.3,
+                pointRadius: 0,
+                pointHoverRadius: 5, // Slightly larger on hover
+                pointBackgroundColor: '#fff', // White center
+                pointBorderColor: ds.color, // Colored border
+                pointBorderWidth: 2,
+                fill: true // Enable fill for multi line too? Maybe too messy. Let's keep false for multi.
+            }));
+        } else {
+            const singleModeData = modeData as SingleModeData;
+            const singleRangeData = rangeData as TimeRangeData;
+            return [{
+                label: singleModeData.label,
+                data: singleRangeData.data,
+                borderColor: singleModeData.color,
+                backgroundColor: createGradient(ctx!, singleModeData.color), // Use Gradient!
+                borderWidth: 3, // Slightly thicker line
+                tension: 0.4, // Smoother curve
+                pointBackgroundColor: '#fff',
+                pointBorderColor: singleModeData.color,
+                pointBorderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 6,
+                fill: true
+            }];
+        }
+    }
 
     // Initial Data
     const initialRangeData = chartData[currentMode].ranges[currentTimeRange];
@@ -159,10 +308,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     padding: 12,
                     boxPadding: 4,
                     cornerRadius: 8,
-                    titleFont: { family: 'Inter', size: 13, weight: '600' },
+                    titleFont: { family: 'Inter', size: 13, weight: 600 as any },
                     bodyFont: { family: 'Inter', size: 12 },
                     callbacks: {
-                        label: function (context) {
+                        label: function (context: any) {
                             let label = context.dataset.label || '';
                             if (label) {
                                 label += ': ';
@@ -192,13 +341,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     min: chartData[currentMode].min,
                     max: chartData[currentMode].max,
                     grid: {
-                        color: '#F1F5F9',
-                        borderDash: [5, 5]
+                        color: '#F1F5F9'
                     },
                     ticks: {
                         stepSize: (chartData[currentMode].max - chartData[currentMode].min) / 4,
-                        callback: function (value) {
-                            return value + ' ' + (chartData[currentMode].unit || chartData[currentMode].datasets[0].unit); // Fixed unit access
+                        callback: function (value: any) {
+                            return value + ' ' + chartData[currentMode].unit;
                         },
                         font: { size: 10, family: 'Inter' },
                         color: '#94A3B8'
@@ -219,7 +367,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
-    function updateChart() {
+    function updateChart(): void {
         const modeData = chartData[currentMode];
         const rangeData = modeData.ranges[currentTimeRange];
 
@@ -227,85 +375,28 @@ document.addEventListener('DOMContentLoaded', function () {
         electricalChart.data.datasets = getDatasetForMode(currentMode, currentTimeRange);
 
         // Update scales
-        electricalChart.options.scales.y.min = modeData.min;
-        electricalChart.options.scales.y.max = modeData.max;
-        electricalChart.options.scales.y.ticks.stepSize = (modeData.max - modeData.min) / 4;
-        electricalChart.options.scales.y.ticks.callback = function (value) {
+        electricalChart.options.scales!.y!.min = modeData.min;
+        electricalChart.options.scales!.y!.max = modeData.max;
+        (electricalChart.options.scales!.y!.ticks as any).stepSize = (modeData.max - modeData.min) / 4;
+        electricalChart.options.scales!.y!.ticks!.callback = function (value: any) {
             return value + ' ' + modeData.unit;
         };
 
         electricalChart.update();
     }
 
-    // Helper to create vertical fade gradient
-    function createGradient(ctx, hexColor) {
-        // Convert hex to rgb
-        let r = 0, g = 0, b = 0;
-        if (hexColor.length === 4) {
-            r = parseInt(hexColor[1] + hexColor[1], 16);
-            g = parseInt(hexColor[2] + hexColor[2], 16);
-            b = parseInt(hexColor[3] + hexColor[3], 16);
-        } else if (hexColor.length === 7) {
-            r = parseInt(hexColor.substr(1, 2), 16);
-            g = parseInt(hexColor.substr(3, 2), 16);
-            b = parseInt(hexColor.substr(5, 2), 16);
-        }
-
-        const gradient = ctx.createLinearGradient(0, 0, 0, 300); // Adjust height roughly
-        gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.5)`);
-        gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.0)`);
-        return gradient;
-    }
-
-    // Update getDatasetForMode to use gradients
-    function getDatasetForMode(mode, range) {
-        const modeData = chartData[mode];
-        const rangeData = modeData.ranges[range];
-
-        if (modeData.type === 'multi') {
-            return rangeData.datasets.map(ds => ({
-                label: ds.label,
-                data: ds.data,
-                borderColor: ds.color,
-                backgroundColor: createGradient(ctx, ds.color), // Use Gradient!
-                borderWidth: 2,
-                tension: 0.3,
-                pointRadius: 0,
-                pointHoverRadius: 5, // Slightly larger on hover
-                pointBackgroundColor: '#fff', // White center
-                pointBorderColor: ds.color, // Colored border
-                pointBorderWidth: 2,
-                fill: true // Enable fill for multi line too? Maybe too messy. Let's keep false for multi.
-            }));
-        } else {
-            return [{
-                label: modeData.label,
-                data: rangeData.data,
-                borderColor: modeData.color,
-                backgroundColor: createGradient(ctx, modeData.color), // Use Gradient!
-                borderWidth: 3, // Slightly thicker line
-                tension: 0.4, // Smoother curve
-                pointBackgroundColor: '#fff',
-                pointBorderColor: modeData.color,
-                pointBorderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 6,
-                fill: true
-            }];
-        }
-    }
-
     // Handle Graph Mode Selection (Segmented Control)
     const modeControls = document.getElementById('graphModeControls');
     if (modeControls) {
-        modeControls.addEventListener('click', (e) => {
-            if (e.target.classList.contains('control-btn')) {
+        modeControls.addEventListener('click', (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            if (target.classList.contains('control-btn')) {
                 // Update specific active state
                 const buttons = modeControls.querySelectorAll('.control-btn');
                 buttons.forEach(btn => btn.classList.remove('active'));
-                e.target.classList.add('active');
+                target.classList.add('active');
 
-                currentMode = e.target.getAttribute('data-value');
+                currentMode = target.getAttribute('data-value') as keyof ChartDataConfig;
                 updateChart();
             }
         });
@@ -314,14 +405,15 @@ document.addEventListener('DOMContentLoaded', function () {
     // Handle Time Range Selection (Segmented Control)
     const timeControls = document.getElementById('timeRangeControls');
     if (timeControls) {
-        timeControls.addEventListener('click', (e) => {
-            if (e.target.classList.contains('control-btn')) {
+        timeControls.addEventListener('click', (e: MouseEvent) => {
+            const target = e.target as HTMLElement;
+            if (target.classList.contains('control-btn')) {
                 // Update specific active state
                 const buttons = timeControls.querySelectorAll('.control-btn');
                 buttons.forEach(btn => btn.classList.remove('active'));
-                e.target.classList.add('active');
+                target.classList.add('active');
 
-                currentTimeRange = e.target.getAttribute('data-value');
+                currentTimeRange = target.getAttribute('data-value') as 'seconds' | 'minutes' | 'hours';
                 updateChart();
             }
         });
@@ -334,10 +426,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const btnCancel = document.getElementById('btnCancel');
     const btnConfirm = document.getElementById('btnConfirm');
 
-    let pendingAction = null;
+    let pendingAction: (() => void) | null = null;
 
-    function showConfirmation(title, message, action) {
-        if (modal) {
+    function showConfirmation(title: string, message: string, action: () => void): void {
+        if (modal && modalTitle && modalMessage) {
             modalTitle.textContent = title;
             modalMessage.textContent = message;
             pendingAction = action;
@@ -345,7 +437,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function closeConfirmation() {
+    function closeConfirmation(): void {
         if (modal) {
             modal.classList.remove('show');
             pendingAction = null;
@@ -412,12 +504,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Time Display Logic
-    const currentTimeEl = document.getElementById('currentTime');
-    const runningTimeEl = document.getElementById('runningTime');
     const startTimeComponent = Date.now();
 
     // Terminal Log Helper
-    function logToTerminal(message) {
+    function logToTerminal(message: string): void {
         const terminalWindow = document.querySelector('.terminal-logs');
         if (terminalWindow) {
             const now = new Date();
@@ -442,12 +532,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Data Aggregation Buffers
-    const secBuffer = { power: [], voltage: [], current: [] };
-    const minBuffer = { power: [], voltage: [], current: [] };
+    const secBuffer: DataBuffer = { power: [], voltage: [], current: [] };
+    const minBuffer: DataBuffer = { power: [], voltage: [], current: [] };
     let lastSecondUpdate = 0;
 
     // OPTIMIZATION: Cache DOM Elements
-    const dom = {
+    const dom: DOMElements = {
         clock: document.getElementById('currentTime'),
         running: document.getElementById('runningTime'),
         uptime: document.getElementById('sysUptime'),
@@ -458,7 +548,7 @@ document.addEventListener('DOMContentLoaded', function () {
         valCell: document.getElementById('valCell'),
         valRPM: document.getElementById('valRPM'),
         resArrow: document.getElementById('resArrow'),
-        resIcon: document.getElementById('resArrow') ? document.getElementById('resArrow').querySelector('i') : null,
+        resIcon: document.getElementById('resArrow') ? document.getElementById('resArrow')!.querySelector('i') : null,
         wheels: {
             FL: {
                 arrow: document.getElementById('arrowFL'),
@@ -483,7 +573,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    function updateTime() {
+    function updateTime(): void {
         try {
             const now = new Date();
 
@@ -494,7 +584,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             if (dom.running) {
-                const diff = now - startTimeComponent;
+                const diff = now.getTime() - startTimeComponent;
                 const hours = Math.floor(diff / 3600000); // Total hours
                 const minutes = Math.floor((diff % 3600000) / 60000);
                 const seconds = Math.floor((diff % 60000) / 1000);
@@ -509,7 +599,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (dom.ping && Math.random() > 0.8) { // Update occasionally
                 const ping = Math.floor(Math.random() * (40 - 15 + 1) + 15);
                 dom.ping.textContent = ping + ' ms';
-                dom.ping.style.color = ping < 50 ? '#4ADE80' : (ping < 100 ? '#FACC15' : '#EF4444');
+                (dom.ping as HTMLElement).style.color = ping < 50 ? '#4ADE80' : (ping < 100 ? '#FACC15' : '#EF4444');
             }
 
             // 3. Robot Simulation (State Machine)
@@ -529,7 +619,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             // Add organic noise
-            /* eslint-disable no-unused-vars */
             drive += (Math.random() - 0.5) * 0.05;
             strafe += (Math.random() - 0.5) * 0.05;
             turn += (Math.random() - 0.5) * 0.05;
@@ -556,7 +645,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (dom.valPower) dom.valPower.textContent = Math.floor(simPower) + ' W';
             if (dom.valCurrent) {
                 dom.valCurrent.textContent = simCurrent.toFixed(1) + ' A';
-                dom.valCurrent.style.color = simCurrent < 10 ? '#4ADE80' : (simCurrent < 20 ? '#FACC15' : '#EF4444');
+                (dom.valCurrent as HTMLElement).style.color = simCurrent < 10 ? '#4ADE80' : (simCurrent < 20 ? '#FACC15' : '#EF4444');
             }
 
             // 6. Visualizer Updates (Wheels & Inverse Kinematics)
@@ -590,7 +679,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const rr = w4_RR / maxVel; // RR
 
             // Update Wheels
-            function setWheel(id, val) {
+            function setWheel(id: string, val: number): number {
                 // Update RPM value (without unit - unit is in HTML)
                 const rpmEl = document.getElementById('rpm' + id);
                 // Update Torque value (keeping format)
@@ -603,7 +692,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const rpm = Math.floor(abs * 4000) + (abs > 0 ? Math.floor(Math.random() * 50) : 0);
 
                     // Update RPM text (just number)
-                    rpmEl.textContent = rpm;
+                    rpmEl.textContent = String(rpm);
 
                     // Update Torque text
                     valEl.innerHTML = (val >= 0 ? '+' : '') + val.toFixed(2) + ' <span class="torque-unit">Nm</span>';
@@ -611,7 +700,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     // Update Progress Bar (0-250 RPM range)
                     if (progEl) {
                         const percentage = Math.min((rpm / 250) * 100, 100);
-                        progEl.style.width = percentage + '%';
+                        (progEl as HTMLElement).style.width = percentage + '%';
                     }
 
                     return rpm;
@@ -625,7 +714,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const rpm4 = setWheel('RR', rr);
 
             const avgRPM = Math.floor((rpm1 + rpm2 + rpm3 + rpm4) / 4);
-            if (dom.valRPM) dom.valRPM.textContent = avgRPM;
+            if (dom.valRPM) dom.valRPM.textContent = String(avgRPM);
 
             // Overall Direction Indicator (Center of Visualizer)
             const overallDirection = document.getElementById('overallDirection');
@@ -645,7 +734,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         overallDirection.classList.add('rotating');
                         if (icon) {
                             icon.className = turn > 0 ? 'bx bx-rotate-left' : 'bx bx-rotate-right';
-                            icon.style.transform = '';
+                            (icon as HTMLElement).style.transform = '';
                         }
                     } else {
                         // Linear Movement Mode
@@ -657,7 +746,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             // Rotate arrow: 0° = UP, so we need to adjust
                             const rotation = 90 - angle;
                             icon.className = 'bx bx-up-arrow-alt';
-                            icon.style.transform = `rotate(${rotation}deg)`;
+                            (icon as HTMLElement).style.transform = `rotate(${rotation}deg)`;
                         }
                     }
                 }
@@ -665,7 +754,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             // 7. Graph Real-time Update (Cascading)
             // ----------------------------------------------------------------
-            function updateModeData(mode, range, value) {
+            function updateModeData(mode: keyof ChartDataConfig, range: 'seconds' | 'minutes' | 'hours', value: number): void {
                 if (!chartData[mode] || !chartData[mode].ranges[range]) return;
 
                 // For multi-line charts (Torque), we'd need to handle datasets array. 
@@ -675,7 +764,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 if (chartData[mode].type === 'multi') return; // Skip complex updates for now to avoid errors
 
-                const rangeData = chartData[mode].ranges[range];
+                const rangeData = chartData[mode].ranges[range] as TimeRangeData;
                 const dataArr = rangeData.data;
                 dataArr.push(value);
                 dataArr.shift(); // Keep fixed length
@@ -754,6 +843,3 @@ document.addEventListener('DOMContentLoaded', function () {
     setInterval(updateTime, 200); // 5Hz update
     updateTime(); // Initial call
 });
-
-
-
